@@ -2,7 +2,10 @@
 -- by Kai
 
 local genv = getgenv and getgenv() or _G
-if genv._DaphneHubLoaded then return end
+if genv._DaphneHubLoaded then
+    warn("[daphne hub] O Hub já está em execução!")
+    return
+end
 genv._DaphneHubLoaded = true
 
 local ok, err = pcall(function()
@@ -22,80 +25,107 @@ local function GetIdealSize()
     )
 end
 
+-- ==================== IMAGENS ====================
 local function ConvertGitHubUrl(url)
-    if url:find("github.com") and not url:find("raw.githubusercontent.com") then
-        return url:gsub("github.com", "raw.githubusercontent.com"):gsub("/blob/", "/")
+    if url:find("github.com", 1, true) and not url:find("raw.githubusercontent.com", 1, true) then
+        local r = url:gsub("github%.com", "raw.githubusercontent.com")
+        r = r:gsub("/blob/", "/")
+        return r
     end
     return url
 end
 
+local ImageCache = {}
+
+-- Retorna um asset local (rbxasset://) ou nil se falhar
 local function LoadImage(url, filename)
+    if ImageCache[filename] then return ImageCache[filename] end
+    if not (writefile and getcustomasset) then return nil end
     local directUrl = ConvertGitHubUrl(url)
     local success, result = pcall(function()
-        if writefile and getcustomasset then
-            writefile(filename, game:HttpGet(directUrl))
-            return getcustomasset(filename)
-        end
-        return nil
+        local data = game:HttpGet(directUrl)
+        writefile(filename, data)
+        return getcustomasset(filename)
     end)
-    return (success and result) and result or nil
+    if success and result then
+        ImageCache[filename] = result
+        return result
+    end
+    return nil
 end
 
+-- OBS: o Roblox NÃO suporta .webp. Se as imagens do tema Rem não aparecerem,
+-- converta-as para .png/.jpg, suba no GitHub e troque as URLs abaixo
+-- (e a extensão em WallpaperFile / ButtonFile).
 local ThemesData = {
     Daphne = {
         Wallpaper = "https://raw.githubusercontent.com/Kairj14/Imagens-projeto-daphne-hub/main/39eaa07f5996adf8d7cee7a7010e496b.jpg",
+        WallpaperFile = "daphne_bg.jpg",
         Button = "https://raw.githubusercontent.com/Kairj14/Imagens-projeto-daphne-hub/main/432d738f3208ac3d8e828f183ca286f6.jpg",
-        BorderColor = Color3.fromRGB(180, 100, 255),
-        FileName = "daphne_btn.jpg"
+        ButtonFile = "daphne_btn.jpg",
+        BorderColor = Color3.fromRGB(180, 100, 255)
     },
     Echidna = {
         Wallpaper = "https://github.com/Kairj14/Imagens-projeto-daphne-hub/blob/main/7fc8386f0c88de03b12278d8c7b5e161.jpg",
+        WallpaperFile = "echidna_bg.jpg",
         Button = "https://github.com/Kairj14/Imagens-projeto-daphne-hub/blob/main/cdc29a5e973d877bf988fde59b258173.jpg",
-        BorderColor = Color3.fromRGB(0, 0, 0),
-        FileName = "echidna_btn.jpg"
+        ButtonFile = "echidna_btn.jpg",
+        BorderColor = Color3.fromRGB(0, 0, 0)
     },
     Rem = {
         Wallpaper = "https://github.com/Kairj14/Imagens-projeto-daphne-hub/blob/main/0e0d1960fcd44de9ab38d466eea8d332.webp",
+        WallpaperFile = "rem_bg.webp",
         Button = "https://github.com/Kairj14/Imagens-projeto-daphne-hub/blob/main/6e130b6dc69747c7828a122faab45b69.webp",
-        BorderColor = Color3.fromRGB(50, 150, 255),
-        FileName = "rem_btn.webp"
+        ButtonFile = "rem_btn.webp",
+        BorderColor = Color3.fromRGB(50, 150, 255)
     },
-    Emília = {
+    ["Emília"] = {
         Wallpaper = "https://github.com/Kairj14/Imagens-projeto-daphne-hub/blob/main/0fc15f7ab964a63013f200d57e572b2f.jpg",
+        WallpaperFile = "emilia_bg.jpg",
         Button = "https://github.com/Kairj14/Imagens-projeto-daphne-hub/blob/main/adfbfb0e6a025e038add8b615d353986.jpg",
-        BorderColor = Color3.fromRGB(255, 255, 255),
-        FileName = "emilia_btn.jpg"
+        ButtonFile = "emilia_btn.jpg",
+        BorderColor = Color3.fromRGB(255, 255, 255)
     },
     Shaula = {
         Wallpaper = "https://github.com/Kairj14/Imagens-projeto-daphne-hub/blob/main/5a6159c30536b4c32818c17469b87ad9.jpg",
+        WallpaperFile = "shaula_bg.jpg",
         Button = "https://github.com/Kairj14/Imagens-projeto-daphne-hub/blob/main/aa78c40bf14df69b9190dd9f7c7ba53f.jpg",
-        BorderColor = Color3.fromRGB(120, 70, 40),
-        FileName = "shaula_btn.jpg"
+        ButtonFile = "shaula_btn.jpg",
+        BorderColor = Color3.fromRGB(120, 70, 40)
     },
     Beatrice = {
         Wallpaper = "https://github.com/Kairj14/Imagens-projeto-daphne-hub/blob/main/b664e5f267e2879c024c346136a4a8db.jpg",
+        WallpaperFile = "beatrice_bg.jpg",
         Button = "https://github.com/Kairj14/Imagens-projeto-daphne-hub/blob/main/e51fca75da07924486a1481e1adc9813.jpg",
-        BorderColor = Color3.fromRGB(255, 220, 0),
-        FileName = "beatrice_btn.jpg"
+        ButtonFile = "beatrice_btn.jpg",
+        BorderColor = Color3.fromRGB(255, 220, 0)
     }
 }
 
-local CurrentTheme = ThemesData["Daphne"]
-local CurrentAsset = LoadImage(CurrentTheme.Button, CurrentTheme.FileName)
+local ThemeOrder = {"Daphne", "Echidna", "Rem", "Emília", "Shaula", "Beatrice"}
 
-Fluent:AddTheme({
-    Name = "DaphneCustom", Accent = "#b464ff", AcrylicMain = "#14101e", AcrylicBorder = "#28193c",
-    AcrylicGradient = ColorSequence.new(Color3.fromHex("#191228"), Color3.fromHex("#0f0a19")), AcrylicNoise = 0.85,
-    TitleBarLine = "#a050ff", Tab = "#322346", Element = "#2d1e41", ElementBorder = "#503278", InElementBorder = "#8c5adc",
-    ElementTransparency = 0.85, ElementBorderThickness = 0.5, ToggleSlider = "#8c46e6", ToggleToggled = "#c88cff",
-    SliderRail = "#3c285a", CheckboxUnchecked = "#503278", CheckboxChecked = "#8c5adc", CheckboxCheck = "#e6c8ff",
-    ProgressBarRail = "#2e1450", ProgressBarFill = "#a078f0", DropdownFrame = "#6433b4", DropdownHolder = "#6e46be",
-    DropdownBorder = "#502890", DropdownOption = "#7850c8", DropdownBorderThickness = 0.5, Keybind = "#8256d2",
-    Input = "#6433b4", InputFocused = "#966ee6", InputIndicator = "#aa82fa", Dialog = "#6e46be", DialogHolder = "#8256d2",
-    DialogHolderLine = "#5a32aa", DialogButton = "#8c64dc", DialogButtonBorder = "#502890", DialogBorder = "#7850c8",
-    DialogInput = "#6433b4", DialogInputLine = "#966ee6", Text = "#f0e6ff", SubText = "#b4a0d2", Hover = "#b464ff",
-    HoverChange = 0.5, Background = ConvertGitHubUrl(CurrentTheme.Wallpaper), BackgroundTransparency = 0.25,
-})
+local CurrentThemeName = "Daphne"
+local CurrentTheme = ThemesData[CurrentThemeName]
+local CurrentWallpaperAsset = LoadImage(CurrentTheme.Wallpaper, CurrentTheme.WallpaperFile)
+local CurrentButtonAsset = LoadImage(CurrentTheme.Button, CurrentTheme.ButtonFile)
+
+local function MakeTheme(name, background)
+    return {
+        Name = name, Accent = "#b464ff", AcrylicMain = "#14101e", AcrylicBorder = "#28193c",
+        AcrylicGradient = ColorSequence.new(Color3.fromHex("#191228"), Color3.fromHex("#0f0a19")), AcrylicNoise = 0.85,
+        TitleBarLine = "#a050ff", Tab = "#322346", Element = "#2d1e41", ElementBorder = "#503278", InElementBorder = "#8c5adc",
+        ElementTransparency = 0.85, ElementBorderThickness = 0.5, ToggleSlider = "#8c46e6", ToggleToggled = "#c88cff",
+        SliderRail = "#3c285a", CheckboxUnchecked = "#503278", CheckboxChecked = "#8c5adc", CheckboxCheck = "#e6c8ff",
+        ProgressBarRail = "#2e1450", ProgressBarFill = "#a078f0", DropdownFrame = "#6433b4", DropdownHolder = "#6e46be",
+        DropdownBorder = "#502890", DropdownOption = "#7850c8", DropdownBorderThickness = 0.5, Keybind = "#8256d2",
+        Input = "#6433b4", InputFocused = "#966ee6", InputIndicator = "#aa82fa", Dialog = "#6e46be", DialogHolder = "#8256d2",
+        DialogHolderLine = "#5a32aa", DialogButton = "#8c64dc", DialogButtonBorder = "#502890", DialogBorder = "#7850c8",
+        DialogInput = "#6433b4", DialogInputLine = "#966ee6", Text = "#f0e6ff", SubText = "#b4a0d2", Hover = "#b464ff",
+        HoverChange = 0.5, Background = background or "", BackgroundTransparency = 0.25,
+    }
+end
+
+Fluent:AddTheme(MakeTheme("DaphneCustom", CurrentWallpaperAsset))
 
 local Window = Fluent:CreateWindow({
     Title = "daphne hub", SubTitle = "by Kai", TabWidth = 140, Size = GetIdealSize(),
@@ -129,6 +159,62 @@ local function ShutdownEverything()
     end)
 end
 
+-- ==================== WALLPAPER ====================
+-- Tenta várias formas de trocar o wallpaper da janela (retorna true se alguma funcionou)
+local ThemeCounter = 0
+local function ApplyWallpaper(asset)
+    if not asset then return false end
+    local applied = false
+
+    -- 1) Caminhos conhecidos do Fluent
+    pcall(function()
+        local w = Fluent.Window
+        if w and w.AcrylicPaint and w.AcrylicPaint.Wallpaper then
+            w.AcrylicPaint.Wallpaper.Image = asset
+            applied = true
+        end
+    end)
+
+    if not applied then
+        pcall(function()
+            if Window.AcrylicPaint and Window.AcrylicPaint.Wallpaper then
+                Window.AcrylicPaint.Wallpaper.Image = asset
+                applied = true
+            end
+        end)
+    end
+
+    -- 2) Procura uma ImageLabel de wallpaper/background dentro da janela
+    if not applied then
+        pcall(function()
+            local root = Window.Root
+            if not root then return end
+            for _, d in ipairs(root:GetDescendants()) do
+                if d:IsA("ImageLabel") then
+                    local n = string.lower(d.Name)
+                    if n:find("wallpaper") or n:find("background") then
+                        d.Image = asset
+                        applied = true
+                    end
+                end
+            end
+        end)
+    end
+
+    -- 3) Último recurso: registra um tema novo com o wallpaper e aplica
+    if not applied then
+        pcall(function()
+            ThemeCounter += 1
+            local newName = "DaphneCustom_" .. ThemeCounter
+            Fluent:AddTheme(MakeTheme(newName, asset))
+            Fluent:SetTheme(newName)
+            applied = true
+        end)
+    end
+
+    return applied
+end
+
 -- ==================== BOTÃO MINIMIZAR ====================
 do
     MinimizerGui = Instance.new("ScreenGui")
@@ -147,7 +233,7 @@ do
     MinimizerBtnObj.BackgroundTransparency = 1
     MinimizerBtnObj.BorderSizePixel = 0
     MinimizerBtnObj.AutoButtonColor = false
-    MinimizerBtnObj.Image = CurrentAsset or ConvertGitHubUrl(CurrentTheme.Button)
+    MinimizerBtnObj.Image = CurrentButtonAsset or ""
     MinimizerBtnObj.ScaleType = Enum.ScaleType.Crop
     MinimizerBtnObj.Parent = MinimizerGui
 
@@ -245,8 +331,17 @@ task.defer(function()
     for _, d in ipairs(root:GetDescendants()) do pcall(tryHook, d) end
 end)
 
+-- Cria aba com fallback caso o ícone não exista na lib
+local function AddTabSafe(title, icon)
+    local okTab, tab = pcall(function()
+        return Window:AddTab({ Title = title, Icon = icon })
+    end)
+    if okTab and tab then return tab end
+    return Window:AddTab({ Title = title })
+end
+
 -- ==================== ABA MAIN ====================
-local Main = Window:AddTab({ Title = "Main", Icon = "solar/home-bold" })
+local Main = AddTabSafe("Main", "solar/home-bold")
 
 Main:AddParagraph({ Title = "Bem-vindo", Content = "daphne hub by Kai" })
 
@@ -297,43 +392,65 @@ Main:AddKeybind("ExemploKeybind", {
     end
 })
 
--- ==================== ABA CONFIG ====================
-local ConfigTab = Window:AddTab({ Title = "Config", Icon = "solar/settings-bold" })
+-- ==================== ABA CONFIG (abaixo da Main) ====================
+local ConfigTab = AddTabSafe("Config", "solar/settings-bold")
 
-ConfigTab:AddParagraph({ Title = "Configurações de Tema", Content = "Alterne o tema do hub para mudar o papel de parede e o botão flutuante." })
+ConfigTab:AddParagraph({
+    Title = "Configurações de Tema",
+    Content = "Escolha um tema para mudar o papel de parede e o botão de minimizar."
+})
+
+local ThemeToken = 0
 
 ConfigTab:AddDropdown("ThemeDropdown", {
     Title = "Selecionar Tema",
-    Values = {"Daphne", "Echidna", "Rem", "Emília", "Shaula", "Beatrice"},
+    Values = ThemeOrder,
     Multi = false,
-    Default = 1,
+    Default = 1, -- Daphne
     Callback = function(Value)
         if not Active then return end
+        if Value == CurrentThemeName then return end -- evita recarregar no init
         local selectedData = ThemesData[Value]
-        if selectedData then
+        if not selectedData then return end
+
+        ThemeToken += 1
+        local token = ThemeToken
+
+        task.spawn(function()
+            local newWall = LoadImage(selectedData.Wallpaper, selectedData.WallpaperFile)
+            local newButton = LoadImage(selectedData.Button, selectedData.ButtonFile)
+
+            -- Se o usuário trocou de tema de novo enquanto baixava, ignora este
+            if not Active or token ~= ThemeToken then return end
+
+            CurrentThemeName = Value
             CurrentTheme = selectedData
-            local newAsset = LoadImage(selectedData.Button, selectedData.FileName)
-            if MinimizerBtnObj then
-                MinimizerBtnObj.Image = newAsset or ConvertGitHubUrl(selectedData.Button)
-            end
+
             if MinimizerOutline then
                 MinimizerOutline.Color = selectedData.BorderColor
             end
-            pcall(function()
-                if Fluent.Window and Fluent.Window.AcrylicPaint and Fluent.Window.AcrylicPaint.Wallpaper then
-                    Fluent.Window.AcrylicPaint.Wallpaper.Image = ConvertGitHubUrl(selectedData.Wallpaper)
-                end
-            end)
-            Fluent:Notify({
-                Title = "Tema Alterado",
-                Content = "Tema atualizado para: " .. Value,
-                Duration = 3
-            })
-        end
+            if MinimizerBtnObj and newButton then
+                MinimizerBtnObj.Image = newButton
+            end
+
+            local wallOk = newWall and ApplyWallpaper(newWall)
+
+            if newWall and newButton and wallOk then
+                Fluent:Notify({
+                    Title = "Tema Alterado",
+                    Content = "Tema atualizado para: " .. Value,
+                    Duration = 3
+                })
+            else
+                Fluent:Notify({
+                    Title = "Tema parcialmente aplicado",
+                    Content = "Não foi possível carregar todas as imagens de " .. Value .. " (formato .webp não é suportado pelo Roblox).",
+                    Duration = 5
+                })
+            end
+        end)
     end
 })
-
-Window:SelectTab(1)
 
 -- ==================== FRASES DA WEB NOVEL ====================
 local daphneQuotes = {
@@ -350,7 +467,7 @@ local daphneQuotes = {
     "A Baleia Branca é enorme... muitas pessoas poderiam se fartar com ela.",
     "Com o Grande Coelho, ninguém jamais teria que passar fome.",
     "A fome extrema pode transformar as pessoas em algo pior do que feras.",
-    "O que você quer ouvir de Daphne, Subaruun?",
+    "O que você ouvir de Daphne, Subaruun?",
     "Subaruun tem um cheiro tão bom... Daphne quer devorar você."
 }
 
