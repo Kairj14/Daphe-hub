@@ -14,8 +14,18 @@ local Fluent = loadstring(game:HttpGet("https://github.com/StyearX/Fluent-Modded
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local CoreGui = game:GetService("CoreGui")
+local ContentProvider = game:GetService("ContentProvider")
 local Camera = workspace.CurrentCamera
 local LocalPlayer = Players.LocalPlayer
+
+-- ==================== CONFIGURAÇÕES AJUSTÁVEIS ====================
+-- Transparência (0 = totalmente opaco, 1 = invisível)
+local BG_TRANSPARENCY      = 0.15  -- wallpaper (menor = wallpaper mais forte)
+local ELEMENT_TRANSPARENCY = 0.35  -- botões/toggles/sliders (menor = mais sólidos e legíveis)
+
+-- Usuário com tema exclusivo
+local SPECIAL_USER_ID = 10702584664
+local IsSpecial = LocalPlayer.UserId == SPECIAL_USER_ID
 
 local function GetIdealSize()
     local vs = Camera.ViewportSize
@@ -37,7 +47,7 @@ end
 
 local ImageCache = {}
 
--- Retorna um asset local (rbxasset://) ou nil se falhar
+-- Retorna um asset local (rbxasset://) ou nil se falhar. Usa cache (instantâneo na 2ª vez).
 local function LoadImage(url, filename)
     if ImageCache[filename] then return ImageCache[filename] end
     if not (writefile and getcustomasset) then return nil end
@@ -54,9 +64,8 @@ local function LoadImage(url, filename)
     return nil
 end
 
--- OBS: o Roblox NÃO suporta .webp. Se as imagens do tema Rem não aparecerem,
--- converta-as para .png/.jpg, suba no GitHub e troque as URLs abaixo
--- (e a extensão em WallpaperFile / ButtonFile).
+-- OBS: o Roblox NÃO suporta .webp. Se o tema Rem não aparecer,
+-- converta as imagens para .png/.jpg, suba no GitHub e troque URLs e extensões abaixo.
 local ThemesData = {
     Daphne = {
         Wallpaper = "https://raw.githubusercontent.com/Kairj14/Imagens-projeto-daphne-hub/main/39eaa07f5996adf8d7cee7a7010e496b.jpg",
@@ -104,8 +113,97 @@ local ThemesData = {
 
 local ThemeOrder = {"Daphne", "Echidna", "Rem", "Emília", "Shaula", "Beatrice"}
 
-local CurrentThemeName = "Daphne"
-local CurrentTheme = ThemesData[CurrentThemeName]
+-- Temas exclusivos (usados só pelo SPECIAL_USER_ID).
+-- Wallpaper e botão de minimizar usam a mesma imagem.
+local SpecialThemes = {
+    Especial = {
+        Wallpaper = "https://github.com/Kairj14/Imagens-projeto-daphne-hub/blob/main/Screenshot_20261006_194907_Gallery.jpg",
+        WallpaperFile = "especial_bg.jpg",
+        Button = "https://github.com/Kairj14/Imagens-projeto-daphne-hub/blob/main/Screenshot_20261006_194907_Gallery.jpg",
+        ButtonFile = "especial_bg.jpg",
+        BorderColor = Color3.fromRGB(255, 255, 255)
+    },
+    ["Tema 2"] = {
+        Wallpaper = "https://github.com/Kairj14/Imagens-projeto-daphne-hub/blob/main/Screenshot_20261006_195018_Instagram.jpg",
+        WallpaperFile = "tema2_bg.jpg",
+        Button = "https://github.com/Kairj14/Imagens-projeto-daphne-hub/blob/main/Screenshot_20261006_195018_Instagram.jpg",
+        ButtonFile = "tema2_bg.jpg",
+        BorderColor = Color3.fromRGB(255, 255, 255)
+    },
+    ["Tema 3"] = {
+        Wallpaper = "https://github.com/Kairj14/Imagens-projeto-daphne-hub/blob/main/Screenshot_20261006_195122_Instagram.jpg",
+        WallpaperFile = "tema3_bg.jpg",
+        Button = "https://github.com/Kairj14/Imagens-projeto-daphne-hub/blob/main/Screenshot_20261006_195122_Instagram.jpg",
+        ButtonFile = "tema3_bg.jpg",
+        BorderColor = Color3.fromRGB(255, 255, 255)
+    }
+}
+local SpecialOrder = {"Tema 2", "Tema 3"}
+
+-- Tabelas ativas conforme o usuário
+local ActiveThemes = IsSpecial and SpecialThemes or ThemesData
+local ActiveOrder = IsSpecial and SpecialOrder or ThemeOrder
+local DefaultThemeName = IsSpecial and "Especial" or "Daphne"
+
+-- ==================== FRASES POR PERSONAGEM ====================
+-- Versões em pt-br das falas (revise a redação se quiser a tradução oficial exata).
+local ThemeQuotes = {
+    Daphne = {
+        "Se você não pode comer, você morre, não é?",
+        "Na vida, a Gula é o desejo mais importante de todos.",
+        "Mesmo que o coração se sinta saciado, as pessoas morrem se não comerem.",
+        "Comer ou ser comido é a única relação neste mundo.",
+        "O estômago de Daphne nunca foi satisfeito em toda a minha vida.",
+        "Tente, se for capaz.",
+        "Eu fico com mais fome apenas por existir...",
+        "Você não acha que todos tratam a gula de forma muito leviana?",
+        "Aquelas crianças herdaram o estômago vazio de Daphne.",
+        "Não é vergonhoso querer comer sem o risco de ser devorado?",
+        "A Baleia Branca é enorme... muitas pessoas poderiam se fartar com ela.",
+        "Com o Grande Coelho, ninguém jamais teria que passar fome.",
+        "A fome extrema pode transformar as pessoas em algo pior do que feras.",
+        "O que você ouvir de Daphne, Subaruun?",
+        "Subaruun tem um cheiro tão bom... Daphne quer devorar você."
+    },
+    Echidna = {
+        "Eu sou a Bruxa da Ganância, Echidna.",
+        "Minha sede de conhecimento nunca será saciada.",
+        "Venha, sente-se e tome um chá comigo.",
+        "Tudo o que eu quero é saber."
+    },
+    Rem = {
+        "Subaru-kun é o herói de Rem.",
+        "Vamos recomeçar do zero, Subaru-kun.",
+        "Rem ama Subaru-kun.",
+        "Rem vai estar sempre ao seu lado."
+    },
+    ["Emília"] = {
+        "Meu nome é Emília. Apenas Emília.",
+        "Eu vou me tornar rainha e mudar este reino.",
+        "Obrigada por estar comigo, Subaru.",
+        "Eu não vou desistir."
+    },
+    Shaula = {
+        "Shaula esperou quatrocentos anos por este momento.",
+        "Shaula só quer ver a Mestra Echidna feliz.",
+        "Pode deixar com a Shaula!"
+    },
+    Beatrice = {
+        "Eu sou Beatrice, guardiã da Biblioteca Proibida.",
+        "Betty esperou quatrocentos anos por alguém como você.",
+        "De agora em diante, Betty estará ao seu lado, Subaru."
+    }
+}
+
+local function RandomQuote(themeName)
+    local list = ThemeQuotes[themeName]
+    if not list or #list == 0 then return nil end
+    return list[math.random(1, #list)]
+end
+
+-- ==================== TEMA FLUENT ====================
+local CurrentThemeName = DefaultThemeName
+local CurrentTheme = ActiveThemes[CurrentThemeName]
 local CurrentWallpaperAsset = LoadImage(CurrentTheme.Wallpaper, CurrentTheme.WallpaperFile)
 local CurrentButtonAsset = LoadImage(CurrentTheme.Button, CurrentTheme.ButtonFile)
 
@@ -114,14 +212,14 @@ local function MakeTheme(name, background)
         Name = name, Accent = "#b464ff", AcrylicMain = "#14101e", AcrylicBorder = "#28193c",
         AcrylicGradient = ColorSequence.new(Color3.fromHex("#191228"), Color3.fromHex("#0f0a19")), AcrylicNoise = 0.85,
         TitleBarLine = "#a050ff", Tab = "#322346", Element = "#2d1e41", ElementBorder = "#503278", InElementBorder = "#8c5adc",
-        ElementTransparency = 0.85, ElementBorderThickness = 0.5, ToggleSlider = "#8c46e6", ToggleToggled = "#c88cff",
+        ElementTransparency = ELEMENT_TRANSPARENCY, ElementBorderThickness = 0.5, ToggleSlider = "#8c46e6", ToggleToggled = "#c88cff",
         SliderRail = "#3c285a", CheckboxUnchecked = "#503278", CheckboxChecked = "#8c5adc", CheckboxCheck = "#e6c8ff",
         ProgressBarRail = "#2e1450", ProgressBarFill = "#a078f0", DropdownFrame = "#6433b4", DropdownHolder = "#6e46be",
         DropdownBorder = "#502890", DropdownOption = "#7850c8", DropdownBorderThickness = 0.5, Keybind = "#8256d2",
         Input = "#6433b4", InputFocused = "#966ee6", InputIndicator = "#aa82fa", Dialog = "#6e46be", DialogHolder = "#8256d2",
         DialogHolderLine = "#5a32aa", DialogButton = "#8c64dc", DialogButtonBorder = "#502890", DialogBorder = "#7850c8",
         DialogInput = "#6433b4", DialogInputLine = "#966ee6", Text = "#f0e6ff", SubText = "#b4a0d2", Hover = "#b464ff",
-        HoverChange = 0.5, Background = background or "", BackgroundTransparency = 0.25,
+        HoverChange = 0.5, Background = background or "", BackgroundTransparency = BG_TRANSPARENCY,
     }
 end
 
@@ -160,32 +258,45 @@ local function ShutdownEverything()
 end
 
 -- ==================== WALLPAPER ====================
--- Tenta várias formas de trocar o wallpaper da janela (retorna true se alguma funcionou)
 local ThemeCounter = 0
+local WallpaperTargets = nil -- cache dos objetos de wallpaper (troca instantânea)
+
 local function ApplyWallpaper(asset)
     if not asset then return false end
-    local applied = false
+
+    -- Caminho rápido: já sabemos quais objetos mudar
+    if WallpaperTargets then
+        local stillValid = false
+        for _, obj in ipairs(WallpaperTargets) do
+            if obj and obj.Parent then
+                obj.Image = asset
+                stillValid = true
+            end
+        end
+        if stillValid then return true end
+        WallpaperTargets = nil
+    end
+
+    local found = {}
 
     -- 1) Caminhos conhecidos do Fluent
     pcall(function()
         local w = Fluent.Window
         if w and w.AcrylicPaint and w.AcrylicPaint.Wallpaper then
-            w.AcrylicPaint.Wallpaper.Image = asset
-            applied = true
+            table.insert(found, w.AcrylicPaint.Wallpaper)
         end
     end)
 
-    if not applied then
+    if #found == 0 then
         pcall(function()
             if Window.AcrylicPaint and Window.AcrylicPaint.Wallpaper then
-                Window.AcrylicPaint.Wallpaper.Image = asset
-                applied = true
+                table.insert(found, Window.AcrylicPaint.Wallpaper)
             end
         end)
     end
 
-    -- 2) Procura uma ImageLabel de wallpaper/background dentro da janela
-    if not applied then
+    -- 2) Procura ImageLabels de wallpaper/background dentro da janela
+    if #found == 0 then
         pcall(function()
             local root = Window.Root
             if not root then return end
@@ -193,25 +304,30 @@ local function ApplyWallpaper(asset)
                 if d:IsA("ImageLabel") then
                     local n = string.lower(d.Name)
                     if n:find("wallpaper") or n:find("background") then
-                        d.Image = asset
-                        applied = true
+                        table.insert(found, d)
                     end
                 end
             end
         end)
     end
 
-    -- 3) Último recurso: registra um tema novo com o wallpaper e aplica
-    if not applied then
-        pcall(function()
-            ThemeCounter += 1
-            local newName = "DaphneCustom_" .. ThemeCounter
-            Fluent:AddTheme(MakeTheme(newName, asset))
-            Fluent:SetTheme(newName)
-            applied = true
-        end)
+    if #found > 0 then
+        for _, obj in ipairs(found) do
+            pcall(function() obj.Image = asset end)
+        end
+        WallpaperTargets = found
+        return true
     end
 
+    -- 3) Último recurso: registra um tema novo com o wallpaper e aplica
+    local applied = false
+    pcall(function()
+        ThemeCounter += 1
+        local newName = "DaphneCustom_" .. ThemeCounter
+        Fluent:AddTheme(MakeTheme(newName, asset))
+        Fluent:SetTheme(newName)
+        applied = true
+    end)
     return applied
 end
 
@@ -340,57 +456,9 @@ local function AddTabSafe(title, icon)
     return Window:AddTab({ Title = title })
 end
 
--- ==================== ABA MAIN ====================
+-- ==================== ABA MAIN (limpa) ====================
 local Main = AddTabSafe("Main", "solar/home-bold")
-
-Main:AddParagraph({ Title = "Bem-vindo", Content = "daphne hub by Kai" })
-
-Main:AddButton({
-    Title = "Botão de Exemplo",
-    Description = "Clique para testar",
-    Callback = function()
-        if not Active then return end
-        Fluent:Notify({ Title = "daphne hub", Content = "Botão funcionando!", Duration = 3 })
-    end
-})
-
-Main:AddToggle("ExemploToggle", {
-    Title = "Toggle de Exemplo",
-    Default = false,
-    Callback = function(Value)
-        if not Active then return end
-        print("Toggle:", Value)
-    end
-})
-
-Main:AddSlider("ExemploSlider", {
-    Title = "Slider de Exemplo",
-    Description = "Valor de 0 a 100",
-    Default = 50, Min = 0, Max = 100, Rounding = 0,
-    Callback = function(Value)
-        if not Active then return end
-        print("Slider:", Value)
-    end
-})
-
-Main:AddDropdown("ExemploDropdown", {
-    Title = "Dropdown de Exemplo",
-    Values = {"Opção 1", "Opção 2", "Opção 3"},
-    Multi = false, Default = 1,
-    Callback = function(Value)
-        if not Active then return end
-        print("Dropdown:", Value)
-    end
-})
-
-Main:AddKeybind("ExemploKeybind", {
-    Title = "Keybind de Exemplo",
-    Mode = "Toggle", Default = "E",
-    Callback = function(Value)
-        if not Active then return end
-        print("Keybind:", Value)
-    end
-})
+-- Adicione suas funções aqui (Main:AddButton, Main:AddToggle, ...)
 
 -- ==================== ABA CONFIG (abaixo da Main) ====================
 local ConfigTab = AddTabSafe("Config", "solar/settings-bold")
@@ -404,19 +472,20 @@ local ThemeToken = 0
 
 ConfigTab:AddDropdown("ThemeDropdown", {
     Title = "Selecionar Tema",
-    Values = ThemeOrder,
+    Values = ActiveOrder,
     Multi = false,
-    Default = 1, -- Daphne
+    Default = (not IsSpecial) and 1 or nil, -- usuário especial começa no tema exclusivo, sem seleção
     Callback = function(Value)
         if not Active then return end
         if Value == CurrentThemeName then return end -- evita recarregar no init
-        local selectedData = ThemesData[Value]
+        local selectedData = ActiveThemes[Value]
         if not selectedData then return end
 
         ThemeToken += 1
         local token = ThemeToken
 
         task.spawn(function()
+            -- Se já estiver em cache (pré-carregado), é instantâneo
             local newWall = LoadImage(selectedData.Wallpaper, selectedData.WallpaperFile)
             local newButton = LoadImage(selectedData.Button, selectedData.ButtonFile)
 
@@ -436,10 +505,11 @@ ConfigTab:AddDropdown("ThemeDropdown", {
             local wallOk = newWall and ApplyWallpaper(newWall)
 
             if newWall and newButton and wallOk then
+                local quote = (not IsSpecial) and RandomQuote(Value) or nil
                 Fluent:Notify({
-                    Title = "Tema Alterado",
-                    Content = "Tema atualizado para: " .. Value,
-                    Duration = 3
+                    Title = quote and Value or "Tema Alterado",
+                    Content = quote or ("Tema atualizado para: " .. Value),
+                    Duration = 4
                 })
             else
                 Fluent:Notify({
@@ -452,34 +522,39 @@ ConfigTab:AddDropdown("ThemeDropdown", {
     end
 })
 
--- ==================== FRASES DA WEB NOVEL ====================
-local daphneQuotes = {
-    "Se você não pode comer, você morre, não é?",
-    "Na vida, a Gula é o desejo mais importante de todos.",
-    "Mesmo que o coração se sinta saciado, as pessoas morrem se não comerem.",
-    "Comer ou ser comido é a única relação neste mundo.",
-    "O estômago de Daphne nunca foi satisfeito em toda a minha vida.",
-    "Tente, se for capaz.",
-    "Eu fico com mais fome apenas por existir...",
-    "Você não acha que todos tratam a gula de forma muito leviana?",
-    "Aquelas crianças herdaram o estômago vazio de Daphne.",
-    "Não é vergonhoso querer comer sem o risco de ser devorado?",
-    "A Baleia Branca é enorme... muitas pessoas poderiam se fartar com ela.",
-    "Com o Grande Coelho, ninguém jamais teria que passar fome.",
-    "A fome extrema pode transformar as pessoas em algo pior do que feras.",
-    "O que você ouvir de Daphne, Subaruun?",
-    "Subaruun tem um cheiro tão bom... Daphne quer devorar você."
-}
+pcall(function() Window:SelectTab(1) end)
 
-local quote = daphneQuotes[math.random(1, #daphneQuotes)]
-
-pcall(function()
-    Fluent:Notify({
-        Title = "Daphne",
-        Content = quote,
-        Duration = 5
-    })
+-- ==================== PRÉ-CARREGAMENTO (troca de tema instantânea) ====================
+task.spawn(function()
+    for _, name in ipairs(ActiveOrder) do
+        if not Active then return end
+        local data = ActiveThemes[name]
+        if data then
+            local w = LoadImage(data.Wallpaper, data.WallpaperFile)
+            local b = LoadImage(data.Button, data.ButtonFile)
+            local list = {}
+            if w then table.insert(list, w) end
+            if b and b ~= w then table.insert(list, b) end
+            if #list > 0 then
+                pcall(function() ContentProvider:PreloadAsync(list) end)
+            end
+        end
+    end
 end)
+
+-- ==================== FRASE INICIAL (não aparece para o usuário especial) ====================
+if not IsSpecial then
+    local quote = RandomQuote("Daphne")
+    if quote then
+        pcall(function()
+            Fluent:Notify({
+                Title = "Daphne",
+                Content = quote,
+                Duration = 5
+            })
+        end)
+    end
+end
 
 end)
 
